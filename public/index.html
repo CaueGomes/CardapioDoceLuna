@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Cardápio</title>
+<style>
+  /* Fontes: AllRound (DEMO sem selos) → glifos extras (acentos, $ - Ç) → Nunito para o que faltar. */
+  @font-face { font-family: ARG-Book-X; src: url(assets/arg-book-extra.otf); }
+  @font-face { font-family: ARG-Bold-X; src: url(assets/arg-bold-extra.otf); }
+  @font-face { font-family: ARG-Book; src: url(assets/arg-book.otf); }
+  @font-face { font-family: ARG-Bold; src: url(assets/arg-bold.otf); }
+  @font-face { font-family: FB-Book; src: url(assets/nunito-500.ttf); }
+  @font-face { font-family: FB-Bold; src: url(assets/nunito-900.ttf); }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #2a2333; color: #eee; font: 15px system-ui, sans-serif; }
+  button { font: inherit; cursor: pointer; border: 0; }
+  #stage { margin: 16px auto 40px; }
+
+  /* Menu de canto */
+  #engrenagem { position: fixed; right: 18px; bottom: 18px; z-index: 20; width: 52px; height: 52px; border-radius: 50%;
+                display: grid; place-items: center; background: #f9e4d5; color: #512f78;
+                box-shadow: 0 6px 20px #0007; transition: transform .25s; }
+  #engrenagem:hover { transform: rotate(45deg); }
+  #engrenagem svg { width: 26px; height: 26px; }
+  #menu { inset: auto 18px 82px auto; margin: 0; width: min(290px, calc(100vw - 36px)); padding: 18px;
+          border: 0; border-radius: 16px; background: #f9e4d5; color: #512f78; box-shadow: 0 12px 40px #000a; }
+  #menu h2 { margin: 0 0 14px; font: 700 20px ARG-Bold-X, ARG-Bold, system-ui; letter-spacing: .5px; }
+  #menu button { display: block; width: 100%; padding: 11px 14px; border-radius: 10px; font-weight: 700; }
+  #exportar { background: #512f78; color: #f9e4d5; }
+  #exportar:hover { background: #63398f; }
+  #restaurar { margin-top: 8px; background: transparent; color: #512f78; border: 1.5px solid #512f7855 !important; }
+  #restaurar:hover { background: #512f7812; }
+  #menu ul { margin: 16px 0 0; padding: 14px 0 0; border-top: 1px solid #512f7833; list-style: none;
+             font-size: 13px; line-height: 1.5; }
+  #menu li { display: flex; gap: 10px; align-items: baseline; margin-top: 6px; }
+  #menu kbd { flex: none; min-width: 46px; text-align: center; padding: 1px 6px; border-radius: 5px;
+              background: #512f7818; font: 700 11px system-ui; }
+  #page { position: relative; width: 595.276px; height: 841.89px; transform-origin: 0 0; overflow: hidden;
+          box-shadow: 0 6px 30px #0008; }
+  #page > img { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+
+  .f { position: absolute; white-space: pre; line-height: 1.2; outline: none; min-width: 12px; cursor: text;
+       font-kerning: normal; font-variant-ligatures: none; border-radius: 2px; }
+  .f:hover { box-shadow: 0 0 0 1px #fff8; }
+  .f:focus { box-shadow: 0 0 0 1px #fff; background: #fff1; }
+  .bold { font-family: ARG-Bold-X, ARG-Bold, FB-Bold; }
+  .book { font-family: ARG-Book-X, ARG-Book, FB-Book; }
+  .creme { color: #f9e4d5; }
+  .roxo  { color: #512f78; }
+  .vazio::before { content: attr(data-ph); opacity: .35; }
+  #page.medir .f { transform: none !important; }
+
+  .bullet { position: absolute; width: 12px; height: 17px; overflow: visible; pointer-events: none; }
+  .ctl { position: absolute; width: 15px; height: 15px; padding: 0; border-radius: 50%; font: 700 11px/15px system-ui;
+         background: #f9e4d5; color: #512f78; opacity: 0; transition: opacity .15s; }
+  .ctl.add { opacity: .35; }
+  #page:hover .ctl.add, .ctl:hover, .ctl:focus { opacity: 1; }
+  .row:hover .ctl.del, .row:focus-within .ctl.del { opacity: .8; }
+</style>
+</head>
+<body>
+<button id="engrenagem" popovertarget="menu" title="Opções" aria-label="Opções">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+</button>
+<div id="menu" popover>
+  <h2>Cardápio</h2>
+  <button id="exportar">Exportar PDF</button>
+  <button id="restaurar">Restaurar original</button>
+  <ul>
+    <li><kbd>Clique</kbd> em qualquer texto para editar</li>
+    <li><kbd>Enter</kbd> cria um sabor abaixo</li>
+    <li><kbd>+</kbd> adiciona um sabor no fim da lista</li>
+    <li><kbd>×</kbd> remove um sabor</li>
+  </ul>
+</div>
+<div id="stage"><div id="page"><img src="assets/fundo.png" alt=""></div></div>
+
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script>
+// Coordenadas em pontos (pt) da arte original, origem no canto superior esquerdo, y = linha de base.
+const W = 595.276, H = 841.89;
+// Ordem de preferência por letra: [extras, AllRound, Nunito] — igual ao CSS.
+const FONTES = { book: ['arg-book-extra.otf', 'arg-book.otf', 'nunito-500.ttf'],
+                 bold: ['arg-bold-extra.otf', 'arg-bold.otf', 'nunito-900.ttf'] };
+const CMYK = { creme: [0.016, 0.105, 0.137, 0], roxo: [0.828, 0.973, 0.184, 0.078] };
+const SLANT = 8, SLANT_Y = 0.25; // inclinação (graus) e altura do eixo (em) que imitam a Book Oblique original
+const STEP = 30.22;        // espaçamento entre sabores adicionados além dos 3 originais
+const MASSA_MAX = 354.3;   // largura da faixa creme atrás do nome da massa
+const STYLE = {
+  peso:  { font: 'bold', size: 31.62, track: 1.74, color: 'creme' },
+  massa: { font: 'bold', size: 17.275, track: 0, color: 'roxo' },
+  sabor: { font: 'book', size: 20, track: 0, color: 'creme', slant: true },
+};
+const LAYOUT = [
+  { peso: [33.35, 152.99], preco: [221.76, 153.88], massa: [24.6, 179.92],
+    cols: [[55.02, [208.84, 237.74, 269.28]], [246.6, [208.84, 237.74, 269.28]]], maxY: 306 },
+  { massa: [24.6, 326.62],
+    cols: [[55.02, [360.5, 389.4, 420.95]], [246.6, [360.5, 389.4, 420.95]]], maxY: 482 },
+  { peso: [34.27, 513.63], preco: [230.8, 511.63], massa: [24.6, 537.12],
+    cols: [[55.39, [572.61, 601.51, 633.05]], [246.64, [574.35, 603.25, 634.79]]], maxY: 690 },
+  { massa: [24.6, 713.04],
+    cols: [[55.02, [749.92, 778.82, 810.36]], [246.6, [749.92, 778.82, 810.36]]], maxY: 820 },
+];
+const S3 = ['Sabor', 'Sabor', 'Sabor'];
+const ORIGINAL = [
+  { peso: '100g', preco: 'R$12,00', massa: 'MASSA TRADICIONAL - AÇUCAR MASCAVO', sabores: [[...S3], [...S3]] },
+  { massa: 'MASSA DE NINHO', sabores: [[...S3], []] },
+  { peso: '150g', preco: 'R$15,00', massa: 'MASSA TRADICIONAL - AÇUCAR MASCAVO', sabores: [[...S3], [...S3]] },
+  { massa: 'MASSA DENSA DE CHOCOLATE', sabores: [[...S3], []] },
+];
+// Estrelinha ✦ copiada do vetor original (origem a 11,29pt à esquerda e 15,70pt acima da base do texto).
+const BULLET = 'M0 0C.437 1.579 1.321 3.698 2.058 4.848C3.134 6.527 4.222 7.057 5.229 7.659C5.398 7.76 5.385 7.947 5.211 8.039C4.075 8.639 2.661 9.721 2.058 10.487C1.215 11.559 .725 13.488-.008 15.475C-.119 15.774-.549 15.783-.632 15.475C-1.105 13.729-1.958 11.387-2.822 10.272C-3.748 9.078-5.122 8.384-5.856 8.039C-6.03 7.957-6.031 7.773-5.875 7.659C-4.684 6.792-3.463 6.147-2.642 4.651C-1.991 3.464-1.127 1.547-.608 .005C-.499-.317-.091-.328 0 0Z';
+const BDX = -11.2884, BDY = -15.7034;
+
+const KEY = 'cardapio-v1';
+let data;
+try { data = JSON.parse(localStorage.getItem(KEY)); } catch {}
+if (!data) data = structuredClone(ORIGINAL);
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {} };
+
+const page = document.getElementById('page');
+const stage = document.getElementById('stage');
+const base = {}; // proporção topo→linha de base de cada fonte (medida no navegador)
+let fields = []; // tudo que vai para o PDF: { el, kind, x, y, size }
+
+const rowY = (ys, i) => i < ys.length ? ys[i] : ys[ys.length - 1] + (i - ys.length + 1) * STEP;
+
+function measureBase(font) {
+  const d = document.createElement('div');
+  d.className = 'f ' + font;
+  d.style.cssText = 'top:0;left:0;font-size:100px;visibility:hidden';
+  d.innerHTML = 'Hg<span style="display:inline-block;width:0;height:0"></span>';
+  page.append(d);
+  const r = d.lastChild.offsetTop / 100;
+  d.remove();
+  return r;
+}
+
+function place(el, kind, x, y, size) {
+  const st = STYLE[kind];
+  el.style.left = x + 'px';
+  el.style.top = (y - base[st.font] * size) + 'px';
+  el.style.fontSize = size + 'px';
+}
+
+function makeField(kind, x, y, get, set, ph) {
+  const st = STYLE[kind];
+  const el = document.createElement('div');
+  el.className = `f ${st.font} ${st.color}`;
+  el.contentEditable = 'plaintext-only';
+  if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true';
+  el.spellcheck = false;
+  el.dataset.ph = ph;
+  el.textContent = get();
+  if (st.track) el.style.letterSpacing = st.track + 'px';
+  if (st.slant) { el.style.transform = `skewX(${-SLANT}deg)`; el.style.transformOrigin = `0 ${base[st.font] - SLANT_Y}em`; }
+  const f = { el, kind, x, y, size: st.size };
+  const fit = () => {
+    el.classList.toggle('vazio', el.textContent === '');
+    if (kind === 'massa') { // encolhe só se passar da faixa creme
+      f.size = st.size; place(el, kind, x, y, f.size);
+      const w = el.scrollWidth;
+      if (w > MASSA_MAX) f.size = st.size * MASSA_MAX / w;
+    }
+    place(el, kind, x, y, f.size);
+  };
+  el.addEventListener('input', () => {
+    if (/[\r\n]/.test(el.textContent)) el.textContent = el.textContent.replace(/[\r\n]+/g, ' ');
+    set(el.textContent); save(); fit();
+  });
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+  page.append(el);
+  fields.push(f);
+  requestAnimationFrame(fit);
+  fit();
+  return el;
+}
+
+function ctl(cls, label, title, x, y, onClick) {
+  const b = document.createElement('button');
+  b.className = 'ctl ' + cls; b.textContent = label; b.title = title;
+  b.style.left = x + 'px'; b.style.top = y + 'px';
+  b.addEventListener('mousedown', e => e.preventDefault());
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function render(focus) {
+  page.querySelectorAll('.f, .row, .ctl').forEach(n => n.remove());
+  fields = [];
+  LAYOUT.forEach((L, s) => {
+    const D = data[s];
+    for (const k of ['peso', 'preco', 'massa']) if (L[k])
+      makeField(k === 'preco' ? 'peso' : k, L[k][0], L[k][1], () => D[k], v => D[k] = v, k);
+    L.cols.forEach(([x, ys], c) => {
+      const list = D.sabores[c];
+      const cabe = () => rowY(ys, list.length) <= L.maxY; // ainda há espaço até o próximo bloco?
+      list.forEach((txt, i) => {
+        const y = rowY(ys, i);
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<svg class="bullet" viewBox="-6.1 -0.4 11.5 16.3" style="left:${x + BDX - 6.1}px;top:${y + BDY - 0.4}px"><path fill="#f9e4d5" d="${BULLET}"/></svg>`;
+        page.append(row);
+        const el = makeField('sabor', x, y, () => list[i], v => list[i] = v, 'sabor');
+        row.append(el);
+        row.append(ctl('del', '×', 'Remover sabor', x + BDX - 26, y - 13, () => { list.splice(i, 1); save(); render(); }));
+        el.addEventListener('keydown', e => {
+          if (e.key === 'Enter' && cabe()) { list.splice(i + 1, 0, ''); save(); render([s, c, i + 1]); }
+          if (e.key === 'Backspace' && el.textContent === '') { e.preventDefault(); list.splice(i, 1); save(); render([s, c, i - 1]); }
+        });
+        if (focus && focus[0] === s && focus[1] === c && focus[2] === i) setTimeout(() => {
+          el.focus(); getSelection().selectAllChildren(el); getSelection().collapseToEnd();
+        });
+      });
+      if (cabe()) page.append(ctl('add', '+', 'Adicionar sabor', x + BDX - 7.5, rowY(ys, list.length) - 13,
+        () => { list.push(''); save(); render([s, c, list.length - 1]); }));
+    });
+  });
+}
+
+function scale() {
+  const k = Math.min(1.6, (innerWidth - 32) / W);
+  page.style.transform = `scale(${k})`;
+  stage.style.width = W * k + 'px';
+  stage.style.height = H * k + 'px';
+}
+
+document.getElementById('restaurar').onclick = () => {
+  if (!confirm('Descartar todas as alterações e voltar ao cardápio original?')) return;
+  data = structuredClone(ORIGINAL); save(); render();
+};
+
+async function gerarPdf() {
+  const { PDFDocument, cmyk, degrees } = PDFLib;
+  const get = u => fetch('assets/' + u).then(r => { if (!r.ok) throw new Error(u); return r.arrayBuffer(); });
+  const pdf = await PDFDocument.load(await get('fundo.pdf'));
+  pdf.registerFontkit(fontkit);
+  const pg = pdf.getPage(0);
+  const fonts = {};
+  for (const [k, list] of Object.entries(FONTES)) fonts[k] = await Promise.all(list.map(async u => {
+    const b = await get(u);
+    return { fk: fontkit.create(new Uint8Array(b)), emb: null, bytes: b };
+  }));
+  const fontFor = async (k, cp) => {
+    const f = fonts[k].find(f => f.fk.hasGlyphForCodePoint(cp));
+    if (f && !f.emb) f.emb = await pdf.embedFont(f.bytes);
+    return f && f.emb;
+  };
+
+  // Posição x de cada letra é lida do próprio navegador: o PDF fica idêntico à tela.
+  page.classList.add('medir');
+  const P = page.getBoundingClientRect(), k = P.width / W;
+  const range = document.createRange();
+  for (const f of fields) {
+    const st = STYLE[f.kind];
+    const txt = f.el.textContent;
+    if (!txt.trim()) continue;
+    if (f.kind === 'sabor') { // estrelinha
+      pg.drawSvgPath(BULLET, { x: f.x + BDX, y: H - (f.y + BDY), color: cmyk(...CMYK.creme) });
+    }
+    const walker = document.createTreeWalker(f.el, NodeFilter.SHOW_TEXT);
+    for (let node; (node = walker.nextNode());) {
+      const t = node.textContent;
+      for (let i = 0; i < t.length;) {
+        const cp = t.codePointAt(i), len = cp > 0xffff ? 2 : 1;
+        const ch = String.fromCodePoint(cp);
+        if (ch.trim()) {
+          range.setStart(node, i); range.setEnd(node, i + len);
+          const x = (range.getBoundingClientRect().left - P.left) / k
+          - (st.slant ? Math.tan(SLANT * Math.PI / 180) * SLANT_Y * f.size : 0);
+          const font = await fontFor(st.font, cp);
+          if (font) pg.drawText(ch, { x, y: H - f.y, size: f.size, font,
+            color: cmyk(...CMYK[st.color]), ySkew: st.slant ? degrees(SLANT) : undefined });
+        }
+        i += len;
+      }
+    }
+  }
+  page.classList.remove('medir');
+  pdf.setTitle('Cardápio');
+  return pdf.save();
+}
+
+async function exportar(btn) {
+  btn.disabled = true; btn.textContent = 'Gerando…';
+  try {
+    const blob = new Blob([await gerarPdf()], { type: 'application/pdf' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'cardapio.pdf' });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  } catch (e) {
+    alert('Não foi possível gerar o PDF: ' + e.message);
+  } finally {
+    page.classList.remove('medir');
+    btn.disabled = false; btn.textContent = 'Exportar PDF';
+  }
+}
+document.getElementById('exportar').onclick = e => exportar(e.currentTarget);
+
+addEventListener('resize', scale);
+scale();
+Promise.all(['ARG-Book', 'ARG-Bold', 'ARG-Book-X', 'ARG-Bold-X'].map(f => document.fonts.load('20px ' + f))).then(() => document.fonts.ready).then(() => {
+  base.book = measureBase('book');
+  base.bold = measureBase('bold');
+  render();
+});
+</script>
+</body>
+</html>

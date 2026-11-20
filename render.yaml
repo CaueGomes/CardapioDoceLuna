@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: editor-cardapio
+    runtime: static
+    buildCommand: echo "site estatico, sem build"
+    staticPublishPath: ./public
